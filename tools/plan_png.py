@@ -5,7 +5,7 @@ import math, sys, json, os
 import matplotlib; matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib import font_manager
-from matplotlib.patches import Circle, Rectangle, FancyArrowPatch
+from matplotlib.patches import Circle, Rectangle, Wedge
 for f in ["/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc","C:/Windows/Fonts/msyh.ttc","/System/Library/Fonts/PingFang.ttc"]:
     if os.path.exists(f):
         font_manager.fontManager.addfont(f); plt.rcParams["font.family"]=font_manager.FontProperties(fname=f).get_name(); break
@@ -13,6 +13,7 @@ BAG,PLANT,APPLE="#4f46e5","#1e8f45","#c0392b"
 POL,ROUTE,INK,ACR,MUT="#b4307a","#1f5fbf","#111827","#2f9fb3","#6b7280"
 L=json.load(open(sys.argv[1],encoding="utf-8"))["layout"]
 W,H=4.3,4.7
+FOV,FOV_R=60,0.85  # 相机视场角（度）和扇形半径（米），按实际相机改
 def ends(it):
     a=math.radians(it["angle"]);h=it["len"]/2
     return (it["x"]-h*math.cos(a),it["y"]-h*math.sin(a)),(it["x"]+h*math.cos(a),it["y"]+h*math.sin(a))
@@ -66,9 +67,8 @@ for b in [i for i in L["items"] if i["type"]=="bag"]:
 ax.plot(*zip(*P),color=ROUTE,lw=2.6,zorder=3)
 for i,(x,y) in enumerate(P):
     lk=R[i].get("look")
-    if lk is not None:
-        a=math.radians(lk)
-        ax.add_patch(FancyArrowPatch((x+0.14*math.cos(a),y+0.14*math.sin(a)),(x+0.42*math.cos(a),y+0.42*math.sin(a)),arrowstyle="-|>",mutation_scale=11,color=POL,lw=1.6,zorder=4))
+    if lk is not None:  # 扇形视线区域：视场 FOV 度，半径 FOV_R 米
+        ax.add_patch(Wedge((x,y),FOV_R,lk-FOV/2,lk+FOV/2,fc=POL,alpha=0.13,ec="none",zorder=1))
     lab_="S" if i==0 else str(i);fc="white" if i==0 else ROUTE
     ax.add_patch(Circle((x,y),0.13,fc=fc,ec=ROUTE,lw=1.6,zorder=5))
     ax.text(x,y,lab_,ha="center",va="center",fontsize=9,color=ROUTE if i==0 else "white",weight="bold",zorder=6)
