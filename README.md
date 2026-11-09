@@ -23,7 +23,7 @@
 | 路点 | 可设停留朝向（0° 东，90° 后墙，180° 西，270° 观众）、停留秒数、备注 |
 | 保存 | 修改自动存在当前浏览器；“导出 JSON 文件”下载布局，“导入 JSON 文件”读回 |
 
-`layouts/layout_v6.json` 是当前定稿布局，也是编辑器打开时的默认布局。
+`layouts/layout_v7.json` 是当前布局（带绿植），也是编辑器打开时的默认布局；`layout_v6.json` 是上一版。之前打开过编辑器的电脑会先读本地自动保存，点「恢复默认布局」即可换成新版。
 
 ## 布局文件格式
 
@@ -45,5 +45,5 @@
 
 ```bash
 pip install matplotlib
-python tools/plan_png.py layouts/layout_v6.json plan.png
+python tools/plan_png.py layouts/layout_v7.json plan.png
 ```

@@ -60,6 +60,7 @@ textarea{width:100%;box-sizing:border-box;font-family:var(--f-mono);font-size:11
     <button id="add-mirror">镜子</button>
     <button id="add-apple">苹果</button>
     <button id="add-bag">书包</button>
+    <button id="add-plant">绿植</button>
     <button id="add-monitor">显示器</button>
     <button id="add-wp">路点</button>
     <span class="sep"></span>
@@ -101,9 +102,10 @@ const TYPES={
   mirror:{name:"镜子",kind:"seg",len:0.6,color:"--pol",w:5},
   monitor:{name:"显示器",kind:"seg",len:0.4,color:"--ink",w:9},
   apple:{name:"苹果",kind:"pt",r:0.2,color:"--spec"},
-  bag:{name:"真 / 假书包",kind:"pt",r:0.22,color:"--route"}
+  bag:{name:"真 / 假书包",kind:"pt",r:0.22,color:"--route"},
+  plant:{name:"绿植",kind:"pt",r:0.25,color:"--route"}
 };
-const TEMPLATE={"items": [{"angle": 90, "id": "w1", "len": 1.7, "type": "acrylic", "x": 0.65, "y": 3.8}, {"angle": 90, "id": "w2", "len": 0.7, "type": "acrylic", "x": 1.55, "y": 0.4}, {"angle": 30, "id": "w4", "len": 1, "type": "acrylic", "x": 1.1, "y": 1.7}, {"angle": 105.5, "id": "m1", "len": 0.6, "type": "mirror", "x": 3.1, "y": 3.75}, {"id": "a1", "type": "apple", "x": 1, "y": 3.95}, {"angle": 30, "id": "5o0i4u", "len": 1.5, "type": "acrylic", "x": 2.2, "y": 1.15}, {"angle": 90, "id": "t1ejdc", "len": 0.6, "type": "acrylic", "x": 0.65, "y": 2.85}, {"angle": 90, "id": "5mon1x", "len": 0.6, "type": "acrylic", "x": 0.65, "y": 2.25}, {"angle": 90, "id": "L3", "len": 0.75, "type": "acrylic", "x": 0.65, "y": 1.85}, {"angle": 90, "id": "j1cm11", "len": 0.85, "type": "opaque", "x": 1.55, "y": 2.35}, {"angle": 90, "id": "sd4ju3", "len": 0.85, "type": "opaque", "x": 1.55, "y": 3.05}, {"angle": 90, "id": "5sbonm", "len": 1.75, "type": "opaque", "x": 2.85, "y": 2.4}, {"id": "bag1", "type": "bag", "x": 3.35, "y": 0.9}], "route": [{"note": "起点 S（入口）", "x": 0.5, "y": 0.5}, {"x": 1.2, "y": 1}, {"note": "识别透明墙", "stop": 2, "x": 2.05, "y": 1.75}, {"look": 36, "note": "镜中苹果 / 隔板看苹果", "stop": 9, "x": 2.35, "y": 3.2}, {"look": 180, "note": "真假苹果 → 左转约 27° 看真假书包", "stop": 10, "x": 2.15, "y": 3.95}], "startHeading": 90, "version": 7};
+const TEMPLATE={"items": [{"id": "back", "type": "opaque", "x": 2.64, "y": 4.65, "len": 3.32, "angle": 0}, {"id": "wl", "type": "acrylic", "x": 1.0, "y": 2.95, "len": 3.5, "angle": 90}, {"id": "wb", "type": "acrylic", "x": 1.75, "y": 1.2, "len": 1.5, "angle": 0}, {"id": "wr", "type": "acrylic", "x": 2.5, "y": 2.45, "len": 2.5, "angle": 90}, {"id": "wd", "type": "acrylic", "x": 2.05, "y": 4.285, "len": 1.19, "angle": 39.2}, {"id": "bag1", "type": "bag", "x": 1.5, "y": 1.7}, {"id": "a1", "type": "apple", "x": 2.0, "y": 1.7}, {"id": "p1", "type": "plant", "x": 2.8, "y": 3.4}, {"id": "p2", "type": "plant", "x": 2.8, "y": 2.75}, {"id": "p3", "type": "plant", "x": 2.8, "y": 2.1}, {"id": "p4", "type": "plant", "x": 2.8, "y": 1.45}], "route": [{"x": 0.5, "y": 4.35, "look": -63, "stop": 3, "note": "起点 S（入口）发现和目标之间隔着玻璃"}, {"x": 0.5, "y": 1.75, "look": -45, "stop": 2, "note": "识别到门口入口"}, {"x": 0.5, "y": 0.9, "look": 33, "stop": 3, "note": "识别玻璃门并绕过 / 和目标还是隔着玻璃"}, {"x": 3.5, "y": 0.9, "look": 90, "stop": 3, "note": "发现无法直视到目标，根据地图记忆寻找路线"}, {"x": 3.5, "y": 3.8, "look": 167, "stop": 5, "note": "在镜面反射中发现苹果"}, {"x": 2.25, "y": 4.14, "look": -110, "stop": 4, "note": "找到无玻璃阻隔的实像苹果"}, {"x": 1.75, "y": 2.55, "look": -90, "stop": 8, "note": "近距离详细分辨真假"}], "startHeading": -90, "version": 12};
 
 let L=clone(TEMPLATE), sel=null, dirty=false;
 function clone(o){return JSON.parse(JSON.stringify(o))}
@@ -149,8 +151,9 @@ function draw(){
       }
     }else{
       if(isSel)el("circle",{cx:X(it.x),cy:Y(it.y),r:T.r*S+4,fill:"none",stroke:css("--sel"),"stroke-width":3},g);
-      el("circle",{cx:X(it.x),cy:Y(it.y),r:T.r*S,fill:css("--paper"),stroke:css(T.color),"stroke-width":2},g);
-      if(it.type==="bag"){el("rect",{x:X(it.x)-15,y:Y(it.y)-7,width:12,height:14,rx:3,fill:"#4f46e5"},g);el("rect",{x:X(it.x)+3,y:Y(it.y)-7,width:12,height:14,rx:3,fill:"none",stroke:"#4f46e5","stroke-width":1.5},g)}
+      el("circle",{cx:X(it.x),cy:Y(it.y),r:T.r*S,fill:css("--paper"),stroke:it.type==="plant"?"#16803a":css(T.color),"stroke-width":2},g);
+      if(it.type==="plant"){el("circle",{cx:X(it.x),cy:Y(it.y),r:T.r*S,fill:"#22a447",opacity:.35},g);el("circle",{cx:X(it.x),cy:Y(it.y),r:T.r*S*0.45,fill:"#16803a"},g)}
+      else if(it.type==="bag"){el("rect",{x:X(it.x)-15,y:Y(it.y)-7,width:12,height:14,rx:3,fill:"#4f46e5"},g);el("rect",{x:X(it.x)+3,y:Y(it.y)-7,width:12,height:14,rx:3,fill:"none",stroke:"#4f46e5","stroke-width":1.5},g)}
       else{el("circle",{cx:X(it.x)-7,cy:Y(it.y),r:5,fill:css("--warn")},g);
       el("circle",{cx:X(it.x)+7,cy:Y(it.y),r:5,fill:"none",stroke:css("--warn"),"stroke-width":1.5},g);}
     }
@@ -258,7 +261,7 @@ function analyze(){
 const KEY="robot-route-layout";
 function markDirty(){dirty=true;try{localStorage.setItem(KEY,JSON.stringify(L));setStatus("已自动保存到本浏览器")}catch(e){setStatus("无法自动保存，请导出 JSON 文件")}}
 function setStatus(t){document.getElementById("status").textContent=t}
-const ADD={acrylic:"add-acrylic",deadend:"add-deadend",opaque:"add-opaque",mirror:"add-mirror",apple:"add-apple",bag:"add-bag",monitor:"add-monitor"};
+const ADD={acrylic:"add-acrylic",deadend:"add-deadend",opaque:"add-opaque",mirror:"add-mirror",apple:"add-apple",bag:"add-bag",plant:"add-plant",monitor:"add-monitor"};
 for(const t in ADD)document.getElementById(ADD[t]).addEventListener("click",()=>{const it={id:uid(),type:t,x:2.15,y:2.35};if(TYPES[t].kind==="seg"){it.len=TYPES[t].len;it.angle=0}L.items.push(it);sel={k:"item",id:it.id};markDirty();draw()});
 document.getElementById("add-wp").addEventListener("click",()=>{const p=L.route[L.route.length-1]||{x:2,y:2};L.route.push({x:r2(Math.min(FW-0.4,p.x+0.5)),y:p.y});sel={k:"wp",i:L.route.length-1};markDirty();draw()});
 document.getElementById("btn-reset").addEventListener("click",()=>{if(!window.confirm("恢复默认布局？当前修改会被覆盖。"))return;L=clone(TEMPLATE);sel=null;markDirty();draw()});
