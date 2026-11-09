@@ -1,0 +1,139 @@
+{
+  "layout": {
+    "items": [
+      {
+        "angle": 90,
+        "id": "w1",
+        "len": 1.7,
+        "type": "acrylic",
+        "x": 0.65,
+        "y": 3.8
+      },
+      {
+        "angle": 90,
+        "id": "w2",
+        "len": 0.7,
+        "type": "acrylic",
+        "x": 1.55,
+        "y": 0.4
+      },
+      {
+        "angle": 30,
+        "id": "w4",
+        "len": 1,
+        "type": "acrylic",
+        "x": 1.1,
+        "y": 1.7
+      },
+      {
+        "angle": 105.5,
+        "id": "m1",
+        "len": 0.6,
+        "type": "mirror",
+        "x": 3.1,
+        "y": 3.75
+      },
+      {
+        "id": "a1",
+        "type": "apple",
+        "x": 1,
+        "y": 3.95
+      },
+      {
+        "angle": 30,
+        "id": "5o0i4u",
+        "len": 1.5,
+        "type": "acrylic",
+        "x": 2.2,
+        "y": 1.15
+      },
+      {
+        "angle": 90,
+        "id": "t1ejdc",
+        "len": 0.6,
+        "type": "acrylic",
+        "x": 0.65,
+        "y": 2.85
+      },
+      {
+        "angle": 90,
+        "id": "5mon1x",
+        "len": 0.6,
+        "type": "acrylic",
+        "x": 0.65,
+        "y": 2.25
+      },
+      {
+        "angle": 90,
+        "id": "L3",
+        "len": 0.75,
+        "type": "acrylic",
+        "x": 0.65,
+        "y": 1.85
+      },
+      {
+        "angle": 90,
+        "id": "j1cm11",
+        "len": 0.85,
+        "type": "opaque",
+        "x": 1.55,
+        "y": 2.35
+      },
+      {
+        "angle": 90,
+        "id": "sd4ju3",
+        "len": 0.85,
+        "type": "opaque",
+        "x": 1.55,
+        "y": 3.05
+      },
+      {
+        "angle": 90,
+        "id": "5sbonm",
+        "len": 1.75,
+        "type": "opaque",
+        "x": 2.85,
+        "y": 2.4
+      },
+      {
+        "id": "bag1",
+        "type": "bag",
+        "x": 3.35,
+        "y": 0.9
+      }
+    ],
+    "route": [
+      {
+        "note": "起点 S（入口）",
+        "x": 0.5,
+        "y": 0.5
+      },
+      {
+        "x": 1.2,
+        "y": 1
+      },
+      {
+        "note": "识别透明墙",
+        "stop": 2,
+        "x": 2.05,
+        "y": 1.75
+      },
+      {
+        "look": 36,
+        "note": "镜中苹果 / 隔板看苹果",
+        "stop": 9,
+        "x": 2.35,
+        "y": 3.2
+      },
+      {
+        "look": 180,
+        "note": "真假苹果 → 左转约 27° 看真假书包",
+        "stop": 10,
+        "x": 2.15,
+        "y": 3.95
+      }
+    ],
+    "startHeading": 90,
+    "version": 7
+  }
+}

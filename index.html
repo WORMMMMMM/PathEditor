@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>路线布置编辑器</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: floor-plan canvas left, inspector + generated move list right; stacks on phones. Ink-blue route, cyan acrylic, magenta polarization, amber spectrum. */
+:root{
+  --bg:#f4f6f8; --paper:#ffffff; --ink:#1d2a3a; --muted:#5b6778; --line:#d5dbe3; --grid:#e6eaef;
+  --route:#1f5fbf; --pol:#b4307a; --spec:#c27a0e; --warn:#b3261e; --acr:#2f9fb3; --ok:#2e7d4f; --sel:#f2b705;
+  --f-body:"Noto Sans SC","PingFang SC","Microsoft YaHei",sans-serif; --f-mono:"JetBrains Mono",ui-monospace,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --bg:#12161c; --paper:#1a2029; --ink:#e3e8ef; --muted:#9aa6b6; --line:#334050; --grid:#232b36;
+  --route:#6aa2ff; --pol:#ec6fb4; --spec:#f0a83a; --warn:#ff8a73; --acr:#62cde0; --ok:#6fcf97; --sel:#ffd34d; color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#12161c; --paper:#1a2029; --ink:#e3e8ef; --muted:#9aa6b6; --line:#334050; --grid:#232b36;
+  --route:#6aa2ff; --pol:#ec6fb4; --spec:#f0a83a; --warn:#ff8a73; --acr:#62cde0; --ok:#6fcf97; --sel:#ffd34d; color-scheme:dark}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:14px;line-height:1.6}
+.wrap{max-width:1180px;margin:0 auto;padding-block:20px 48px;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));display:grid;gap:14px}
+h1{font-size:22px;margin:0}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+button{font:inherit;font-size:13px;padding:5px 11px;border-radius:5px;border:1px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
+button:hover{border-color:var(--route)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--route);outline-offset:1px}
+button.primary{background:var(--route);border-color:var(--route);color:#fff}
+button.danger{color:var(--warn)}
+.sep{width:1px;height:22px;background:var(--line)}
+#status{font-size:12px;color:var(--muted)}
+.main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:14px;align-items:start}
+@media (max-width:860px){.main{grid-template-columns:minmax(0,1fr)}}
+.canvas{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:8px;overflow:auto;min-width:0}
+svg{display:block;width:100%;height:auto;touch-action:none;user-select:none}
+.side{display:grid;gap:14px;min-width:0}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:6px;padding:12px 14px;display:grid;gap:8px;min-width:0}
+.card h2{font-size:14px;margin:0}
+.hint{color:var(--muted);font-size:12px}
+.fields{display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:center}
+.fields label{font-size:12px;color:var(--muted)}
+.fields input{font:inherit;font-family:var(--f-mono);font-size:13px;padding:3px 6px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--ink);width:100%;box-sizing:border-box}
+.moves{font-size:13px;max-height:360px;overflow:auto}
+.moves ol{margin:0;padding-left:2.2em;display:grid;gap:2px}
+.moves .stop{color:var(--pol)}
+.sum{font-family:var(--f-mono);font-size:13px;font-variant-numeric:tabular-nums}
+.warn{color:var(--warn);font-size:12px}
+textarea{width:100%;box-sizing:border-box;font-family:var(--f-mono);font-size:11px;height:90px;background:var(--bg);color:var(--ink);border:1px solid var(--line);border-radius:4px}
+</style>
+
+</head>
+<body>
+<div class="wrap">
+  <h1>路线布置编辑器</h1>
+  <div class="bar">
+    <span class="hint">添加：</span>
+    <button id="add-acrylic">亚克力板</button>
+    <button id="add-deadend">透明挡板</button>
+    <button id="add-opaque">不透明板</button>
+    <button id="add-mirror">镜子</button>
+    <button id="add-apple">苹果</button>
+    <button id="add-bag">书包</button>
+    <button id="add-monitor">显示器</button>
+    <button id="add-wp">路点</button>
+    <span class="sep"></span>
+    <button id="btn-save" class="primary">导出 JSON 文件</button>
+    <button id="btn-load">导入 JSON 文件</button>
+    <input type="file" id="file-in" accept=".json,application/json" hidden>
+    <button id="btn-reset">恢复默认布局</button>
+    <span id="status"></span>
+  </div>
+  <div class="main">
+    <div class="canvas"><svg id="svg" viewBox="0 0 530 570" aria-label="场地俯视图编辑区"></svg></div>
+    <div class="side">
+      <div class="card" id="insp">
+        <h2>选中对象</h2>
+        <p class="hint">在图上点选或拖动对象。板子、镜子可改长度和角度；按 R / Shift+R 旋转 15°，Delete 删除。</p>
+      </div>
+      <div class="card">
+        <h2>按路线自动生成的动作</h2>
+        <div class="sum" id="sum"></div>
+        <div id="warns"></div>
+        <div class="moves" id="moves"></div>
+      </div>
+      <div class="card">
+        <h2>布局数据</h2>
+        <p class="hint">修改会自动保存在本浏览器里。要分享或备份，用“导出 JSON 文件”。</p>
+        <textarea id="json" readonly></textarea>
+        <button id="btn-copy">复制 JSON</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+const S=100, M=50, FW=4.3, FH=4.7, SNAP=0.05, V=0.3, W=29; // px/m, margin, field, snap, m/s, deg/s
+const TYPES={
+  acrylic:{name:"亚克力板",kind:"seg",len:0.6,color:"--acr",w:5},
+  deadend:{name:"透明挡板（需识别）",kind:"seg",len:0.8,color:"--pol",w:7},
+  opaque:{name:"不透明遮挡板",kind:"seg",len:0.85,color:"--ink",w:7},
+  mirror:{name:"镜子",kind:"seg",len:0.6,color:"--pol",w:5},
+  monitor:{name:"显示器",kind:"seg",len:0.4,color:"--ink",w:9},
+  apple:{name:"苹果",kind:"pt",r:0.2,color:"--spec"},
+  bag:{name:"真 / 假书包",kind:"pt",r:0.22,color:"--route"}
+};
+const TEMPLATE={"items": [{"angle": 90, "id": "w1", "len": 1.7, "type": "acrylic", "x": 0.65, "y": 3.8}, {"angle": 90, "id": "w2", "len": 0.7, "type": "acrylic", "x": 1.55, "y": 0.4}, {"angle": 30, "id": "w4", "len": 1, "type": "acrylic", "x": 1.1, "y": 1.7}, {"angle": 105.5, "id": "m1", "len": 0.6, "type": "mirror", "x": 3.1, "y": 3.75}, {"id": "a1", "type": "apple", "x": 1, "y": 3.95}, {"angle": 30, "id": "5o0i4u", "len": 1.5, "type": "acrylic", "x": 2.2, "y": 1.15}, {"angle": 90, "id": "t1ejdc", "len": 0.6, "type": "acrylic", "x": 0.65, "y": 2.85}, {"angle": 90, "id": "5mon1x", "len": 0.6, "type": "acrylic", "x": 0.65, "y": 2.25}, {"angle": 90, "id": "L3", "len": 0.75, "type": "acrylic", "x": 0.65, "y": 1.85}, {"angle": 90, "id": "j1cm11", "len": 0.85, "type": "opaque", "x": 1.55, "y": 2.35}, {"angle": 90, "id": "sd4ju3", "len": 0.85, "type": "opaque", "x": 1.55, "y": 3.05}, {"angle": 90, "id": "5sbonm", "len": 1.75, "type": "opaque", "x": 2.85, "y": 2.4}, {"id": "bag1", "type": "bag", "x": 3.35, "y": 0.9}], "route": [{"note": "起点 S（入口）", "x": 0.5, "y": 0.5}, {"x": 1.2, "y": 1}, {"note": "识别透明墙", "stop": 2, "x": 2.05, "y": 1.75}, {"look": 36, "note": "镜中苹果 / 隔板看苹果", "stop": 9, "x": 2.35, "y": 3.2}, {"look": 180, "note": "真假苹果 → 左转约 27° 看真假书包", "stop": 10, "x": 2.15, "y": 3.95}], "startHeading": 90, "version": 7};
+
+let L=clone(TEMPLATE), sel=null, dirty=false;
+function clone(o){return JSON.parse(JSON.stringify(o))}
+const svg=document.getElementById("svg"), NS="http://www.w3.org/2000/svg";
+const X=x=>M+x*S, Y=y=>M+(FH-y)*S;
+const r2=v=>Math.round(v*100)/100, snap=v=>Math.round(v/SNAP)*SNAP;
+const css=v=>`var(${v})`;
+function el(tag,attrs,parent){const e=document.createElementNS(NS,tag);for(const k in attrs)e.setAttribute(k,attrs[k]);(parent||svg).appendChild(e);return e}
+function ends(it){const a=it.angle*Math.PI/180,h=it.len/2;return[[it.x-h*Math.cos(a),it.y-h*Math.sin(a)],[it.x+h*Math.cos(a),it.y+h*Math.sin(a)]]}
+function norm(d){return((d%360)+540)%360-180}
+function hdg(a,b){return Math.atan2(b.y-a.y,b.x-a.x)*180/Math.PI}
+function segDist(p,a,b){const dx=b[0]-a[0],dy=b[1]-a[1],l=dx*dx+dy*dy;let t=l?((p[0]-a[0])*dx+(p[1]-a[1])*dy)/l:0;t=Math.max(0,Math.min(1,t));return Math.hypot(p[0]-a[0]-t*dx,p[1]-a[1]-t*dy)}
+function segSeg(a,b,c,d){ // min distance between two segments (no intersection test needed beyond endpoints + crossing)
+  const cr=(p,q,r)=>(q[0]-p[0])*(r[1]-p[1])-(q[1]-p[1])*(r[0]-p[0]);
+  if(cr(a,b,c)*cr(a,b,d)<0&&cr(c,d,a)*cr(c,d,b)<0)return 0;
+  return Math.min(segDist(a,c,d),segDist(b,c,d),segDist(c,a,b),segDist(d,a,b))}
+
+function draw(){
+  svg.textContent="";
+  const defs=el("defs",{});
+  const pat=el("pattern",{id:"g",width:50,height:50,patternUnits:"userSpaceOnUse",x:M,y:M},defs);
+  el("path",{d:"M50 0H0V50",fill:"none",stroke:css("--grid")},pat);
+  const mk=el("marker",{id:"arr",viewBox:"0 0 10 10",refX:8,refY:5,markerWidth:7,markerHeight:7,orient:"auto"},defs);
+  el("path",{d:"M0 0L10 5L0 10z",fill:css("--route")},mk);
+  const bg=el("rect",{x:M,y:M,width:FW*S,height:FH*S,fill:"url(#g)",stroke:css("--ink"),"stroke-width":2});
+  bg.addEventListener("pointerdown",()=>{sel=null;draw()});
+  const t=el("g",{"font-family":"JetBrains Mono,monospace","font-size":11,fill:css("--muted")});
+  for(let i=0;i<=4;i++){el("text",{x:X(i),y:Y(0)+18,"text-anchor":"middle"},t).textContent=i;el("text",{x:M-8,y:Y(i)+4,"text-anchor":"end"},t).textContent=i}
+  el("text",{x:X(FW/2),y:M-12,"text-anchor":"middle","font-size":12,fill:css("--muted")}).textContent="后墙";
+  el("text",{x:X(FW/2),y:Y(0)+36,"text-anchor":"middle","font-size":12,fill:css("--muted")}).textContent="观众 / 拍照位置";
+
+  // items
+  L.items.forEach(it=>{
+    const T=TYPES[it.type], g=el("g",{style:"cursor:move"}); const isSel=sel&&sel.k==="item"&&sel.id===it.id;
+    if(T.kind==="seg"){
+      const [p,q]=ends(it);
+      el("line",{x1:X(p[0]),y1:Y(p[1]),x2:X(q[0]),y2:Y(q[1]),stroke:"transparent","stroke-width":18},g);
+      if(isSel)el("line",{x1:X(p[0]),y1:Y(p[1]),x2:X(q[0]),y2:Y(q[1]),stroke:css("--sel"),"stroke-width":T.w+6,"stroke-linecap":"round"},g);
+      el("line",{x1:X(p[0]),y1:Y(p[1]),x2:X(q[0]),y2:Y(q[1]),stroke:css(T.color),"stroke-width":T.w,"stroke-linecap":"round",opacity:it.type==="acrylic"?.8:1},g);
+      if(it.type==="mirror"||it.type==="monitor"){ // facing arrow = left-hand normal
+        const a=(it.angle+90)*Math.PI/180;
+        el("line",{x1:X(it.x),y1:Y(it.y),x2:X(it.x+0.25*Math.cos(a)),y2:Y(it.y+0.25*Math.sin(a)),stroke:css(T.color),"stroke-width":1.5,"stroke-dasharray":"3 3"},g);
+      }
+    }else{
+      if(isSel)el("circle",{cx:X(it.x),cy:Y(it.y),r:T.r*S+4,fill:"none",stroke:css("--sel"),"stroke-width":3},g);
+      el("circle",{cx:X(it.x),cy:Y(it.y),r:T.r*S,fill:css("--paper"),stroke:css(T.color),"stroke-width":2},g);
+      if(it.type==="bag"){el("rect",{x:X(it.x)-15,y:Y(it.y)-7,width:12,height:14,rx:3,fill:"#4f46e5"},g);el("rect",{x:X(it.x)+3,y:Y(it.y)-7,width:12,height:14,rx:3,fill:"none",stroke:"#4f46e5","stroke-width":1.5},g)}
+      else{el("circle",{cx:X(it.x)-7,cy:Y(it.y),r:5,fill:css("--warn")},g);
+      el("circle",{cx:X(it.x)+7,cy:Y(it.y),r:5,fill:"none",stroke:css("--warn"),"stroke-width":1.5},g);}
+    }
+    drag(g,()=>({x:it.x,y:it.y}),(x,y)=>{it.x=x;it.y=y},{k:"item",id:it.id});
+  });
+
+  // route
+  const R=L.route;
+  if(R.length>1){
+    const d=R.map((p,i)=>(i?"L":"M")+X(p.x)+" "+Y(p.y)).join("");
+    el("path",{d,fill:"none",stroke:css("--route"),"stroke-width":3,"stroke-linejoin":"round"});
+  }
+  R.forEach((p,i)=>{
+    if(p.look!=null){const a=p.look*Math.PI/180;const fov=20*Math.PI/180;const r=1.0;
+      el("path",{d:`M${X(p.x)} ${Y(p.y)}L${X(p.x+r*Math.cos(a-fov))} ${Y(p.y+r*Math.sin(a-fov))}A${r*S} ${r*S} 0 0 0 ${X(p.x+r*Math.cos(a+fov))} ${Y(p.y+r*Math.sin(a+fov))}Z`,fill:css("--pol"),opacity:.12});}
+    const g=el("g",{style:"cursor:move"}); const isSel=sel&&sel.k==="wp"&&sel.i===i;
+    el("circle",{cx:X(p.x),cy:Y(p.y),r:13,fill:isSel?css("--sel"):css("--paper"),stroke:css("--route"),"stroke-width":2},g);
+    el("text",{x:X(p.x),y:Y(p.y)+4,"text-anchor":"middle","font-size":11,"font-weight":600,"font-family":"JetBrains Mono,monospace",fill:css("--route")},g).textContent=i===0?"S":i;
+    if(p.note)el("text",{x:X(p.x)+17,y:Y(p.y)-10,"font-size":11,fill:css("--muted")},g).textContent=p.note;
+    drag(g,()=>({x:p.x,y:p.y}),(x,y)=>{p.x=x;p.y=y},{k:"wp",i});
+  });
+  // robot footprint at start
+  if(R.length){const p=R[0],a=(R.length>1?hdg(R[0],R[1]):L.startHeading);
+    el("rect",{x:X(p.x)-32.5,y:Y(p.y)-15.5,width:65,height:31,rx:5,fill:css("--route"),opacity:.15,transform:`rotate(${-a} ${X(p.x)} ${Y(p.y)})`,"pointer-events":"none"});}
+  inspector();analyze();
+  document.getElementById("json").value=JSON.stringify(L,null,1);
+}
+
+function drag(g,get,set,selector){
+  g.addEventListener("pointerdown",e=>{
+    e.stopPropagation();sel=selector;
+    const pt=svg.createSVGPoint();const toM=ev=>{pt.x=ev.clientX;pt.y=ev.clientY;const q=pt.matrixTransform(svg.getScreenCTM().inverse());return[(q.x-M)/S,FH-(q.y-M)/S]};
+    const s=toM(e),o=get();let moved=false;
+    e.preventDefault();
+    let raf=0,last=null;
+    const mv=ev=>{last=ev;if(raf)return;raf=requestAnimationFrame(()=>{raf=0;const c=toM(last);const nx=r2(Math.min(FW,Math.max(0,snap(o.x+c[0]-s[0])))),ny=r2(Math.min(FH,Math.max(0,snap(o.y+c[1]-s[1]))));if(nx!==o.x||ny!==o.y||moved){moved=true;set(nx,ny);markDirty();draw()}})};
+    const up=()=>{window.removeEventListener("pointermove",mv);window.removeEventListener("pointerup",up);window.removeEventListener("pointercancel",up);if(!moved)draw()};
+    window.addEventListener("pointermove",mv);window.addEventListener("pointerup",up);window.addEventListener("pointercancel",up);
+  });
+}
+
+function field(box,label,val,onset,step){
+  const id="f-"+label.replace(/\W/g,"")+"-"+box.children.length;
+  const l=document.createElement("label");l.textContent=label;l.htmlFor=id;
+  const i=document.createElement("input");i.id=id;i.type=typeof val==="number"||val==null&&step?"number":"text";if(step)i.step=step;i.value=val??"";
+  i.addEventListener("change",()=>{onset(i.type==="number"?(i.value===""?null:parseFloat(i.value)):i.value);markDirty();draw()});
+  box.append(l,i);
+}
+function inspector(){
+  const box=document.getElementById("insp");box.textContent="";
+  const h=document.createElement("h2");box.appendChild(h);
+  if(!sel){h.textContent="选中对象";const p=document.createElement("p");p.className="hint";p.textContent="在图上点选或拖动对象（吸附 5 cm）。板子、镜子可改长度和角度；选中后按 R / Shift+R 旋转 15°，Delete 删除。";box.appendChild(p);return}
+  const f=document.createElement("div");f.className="fields";
+  if(sel.k==="item"){const it=L.items.find(i=>i.id===sel.id);if(!it){sel=null;return inspector()}
+    h.textContent=TYPES[it.type].name;
+    field(f,"x (m)",it.x,v=>it.x=v,0.05);field(f,"y (m)",it.y,v=>it.y=v,0.05);
+    if(TYPES[it.type].kind==="seg"){field(f,"长度 (m)",it.len,v=>it.len=Math.max(0.05,v),0.05);field(f,"角度 (°)",it.angle,v=>it.angle=v,5)}
+    box.appendChild(f);
+    if(it.type==="mirror"||it.type==="monitor"){const p=document.createElement("p");p.className="hint";p.textContent="虚线箭头是镜面 / 屏幕朝向，角度 = 板子走向，朝向在走向左侧 90°。";box.appendChild(p)}
+    const bar=document.createElement("div");bar.className="bar";
+    const b1=btn("旋转 −15°",()=>rot(-15)),b2=btn("旋转 +15°",()=>rot(15)),b3=btn("复制",()=>{const c={...it,id:uid(),x:r2(it.x+0.2),y:r2(it.y-0.2)};L.items.push(c);sel={k:"item",id:c.id};markDirty();draw()}),b4=btn("删除",del);b4.className="danger";
+    bar.append(b1,b2,b3,b4);box.appendChild(bar);
+  }else{const p=L.route[sel.i];if(!p){sel=null;return inspector()}
+    h.textContent=sel.i===0?"路点 S（起点）":"路点 "+sel.i;
+    field(f,"x (m)",p.x,v=>p.x=v,0.05);field(f,"y (m)",p.y,v=>p.y=v,0.05);
+    field(f,"停留朝向 (°)",p.look??null,v=>{if(v==null)delete p.look;else p.look=v},1);
+    field(f,"停留 (s)",p.stop??null,v=>{if(!v)delete p.stop;else p.stop=v},1);
+    field(f,"备注",p.note||"",v=>p.note=v);
+    box.appendChild(f);
+    const hint=document.createElement("p");hint.className="hint";hint.textContent="朝向：0° 朝东（右），90° 朝北（后墙），180° 朝西，270° 朝观众。留空表示不额外转身。";box.appendChild(hint);
+    const bar=document.createElement("div");bar.className="bar";
+    const b1=btn("在后面插入路点",()=>{const q=L.route[sel.i+1];const n=q?{x:r2((p.x+q.x)/2),y:r2((p.y+q.y)/2)}:{x:r2(Math.min(FW,p.x+0.5)),y:p.y};L.route.splice(sel.i+1,0,n);sel={k:"wp",i:sel.i+1};markDirty();draw()});
+    const b2=btn("删除",del);b2.className="danger";bar.append(b1,b2);box.appendChild(bar);
+  }
+}
+function btn(t,fn){const b=document.createElement("button");b.textContent=t;b.addEventListener("click",fn);return b}
+function uid(){return Math.random().toString(36).slice(2,8)}
+function rot(d){if(sel?.k!=="item")return;const it=L.items.find(i=>i.id===sel.id);if(it&&it.len!=null){it.angle=norm(it.angle+d);markDirty();draw()}}
+function del(){if(!sel)return;if(sel.k==="item")L.items=L.items.filter(i=>i.id!==sel.id);else if(L.route.length>1)L.route.splice(sel.i,1);sel=null;markDirty();draw()}
+
+function analyze(){
+  const R=L.route,moves=[];let h=L.startHeading,dist=0,time=0,turnSum=0;
+  const turn=(to,why)=>{const d=norm(to-h);if(Math.abs(d)>=1){moves.push({t:`${d>0?"左":"右"}转 ${Math.abs(Math.round(d))}°${why?"，"+why:""}`});time+=Math.abs(d)/W;turnSum+=Math.abs(d)}h=to};
+  moves.push({t:`在 S (${R[0].x}, ${R[0].y}) 站立，朝 ${Math.round(h)}°`});
+  for(let i=1;i<R.length;i++){
+    const a=R[i-1],b=R[i],d=Math.hypot(b.x-a.x,b.y-a.y);
+    turn(hdg(a,b));
+    moves.push({t:`直走 ${d.toFixed(2)} m 到点 ${i}`});dist+=d;time+=d/V;
+    if(b.look!=null)turn(b.look,"朝向停留方向");
+    if(b.stop){moves.push({t:`停 ${b.stop} s${b.note?"："+b.note:""}`,stop:true});time+=b.stop}
+  }
+  document.getElementById("sum").textContent=`总长 ${dist.toFixed(2)} m · 累计转角 ${Math.round(turnSum)}° · 约 ${Math.round(time)} s`;
+  const mv=document.getElementById("moves");mv.textContent="";const ol=document.createElement("ol");
+  moves.forEach(m=>{const li=document.createElement("li");li.textContent=m.t;if(m.stop)li.className="stop";ol.appendChild(li)});mv.appendChild(ol);
+  // clearance: robot turning radius 0.36 m
+  const w=[];for(let i=1;i<R.length;i++){const a=[R[i-1].x,R[i-1].y],b=[R[i].x,R[i].y];
+    L.items.forEach(it=>{let d;if(TYPES[it.type].kind==="seg"){const[p,q]=ends(it);d=segSeg(a,b,p,q)}else d=segDist([it.x,it.y],a,b)-TYPES[it.type].r;
+      if(d<0.36)w.push(`第 ${i} 段离${TYPES[it.type].name}只有 ${Math.max(0,d).toFixed(2)} m（转身半径约 0.36 m）`)})}
+  R.forEach((p,i)=>{if(p.x<0.36||p.x>FW-0.36||p.y<0.36||p.y>FH-0.36)w.push(`点 ${i===0?"S":i} 离场地边不到 0.36 m`)});
+  const wb=document.getElementById("warns");wb.textContent="";
+  if(w.length)[...new Set(w)].forEach(s=>{const p=document.createElement("div");p.className="warn";p.textContent="⚠ "+s;wb.appendChild(p)});
+  else{const p=document.createElement("div");p.className="hint";p.style.color="var(--ok)";p.textContent="路线离所有道具都 ≥ 0.36 m";wb.appendChild(p)}
+}
+
+const KEY="robot-route-layout";
+function markDirty(){dirty=true;try{localStorage.setItem(KEY,JSON.stringify(L));setStatus("已自动保存到本浏览器")}catch(e){setStatus("无法自动保存，请导出 JSON 文件")}}
+function setStatus(t){document.getElementById("status").textContent=t}
+const ADD={acrylic:"add-acrylic",deadend:"add-deadend",opaque:"add-opaque",mirror:"add-mirror",apple:"add-apple",bag:"add-bag",monitor:"add-monitor"};
+for(const t in ADD)document.getElementById(ADD[t]).addEventListener("click",()=>{const it={id:uid(),type:t,x:2.15,y:2.35};if(TYPES[t].kind==="seg"){it.len=TYPES[t].len;it.angle=0}L.items.push(it);sel={k:"item",id:it.id};markDirty();draw()});
+document.getElementById("add-wp").addEventListener("click",()=>{const p=L.route[L.route.length-1]||{x:2,y:2};L.route.push({x:r2(Math.min(FW-0.4,p.x+0.5)),y:p.y});sel={k:"wp",i:L.route.length-1};markDirty();draw()});
+document.getElementById("btn-reset").addEventListener("click",()=>{if(!window.confirm("恢复默认布局？当前修改会被覆盖。"))return;L=clone(TEMPLATE);sel=null;markDirty();draw()});
+document.getElementById("btn-copy").addEventListener("click",()=>{const ta=document.getElementById("json");navigator.clipboard?.writeText(ta.value).then(()=>setStatus("已复制 JSON"),()=>{ta.select();setStatus("请按 Ctrl+C 复制")})??(ta.select())});
+document.getElementById("btn-save").addEventListener("click",()=>{
+  const blob=new Blob([JSON.stringify({layout:L,savedAt:new Date().toISOString()},null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);
+  a.download="layout_"+new Date().toISOString().slice(0,16).replace(/[-:T]/g,"")+".json";a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);setStatus("已导出 JSON 文件");
+});
+document.getElementById("btn-load").addEventListener("click",()=>document.getElementById("file-in").click());
+document.getElementById("file-in").addEventListener("change",async e=>{
+  const f=e.target.files[0];if(!f)return;
+  try{const j=JSON.parse(await f.text());const lay=j.layout||j;if(!Array.isArray(lay.items)||!Array.isArray(lay.route))throw new Error("缺少 items 或 route");
+    L=clone(lay);sel=null;markDirty();draw();setStatus("已导入 "+f.name)}
+  catch(err){setStatus("导入失败："+err.message)}
+  e.target.value="";
+});
+document.addEventListener("keydown",e=>{if(e.target.tagName==="INPUT"||e.target.tagName==="TEXTAREA")return;
+  if(e.key==="Delete"||e.key==="Backspace"){if(sel){e.preventDefault();del()}}
+  else if(e.key==="r"||e.key==="R")rot(e.shiftKey?-15:15)});
+
+try{const saved=localStorage.getItem(KEY);if(saved){L=JSON.parse(saved);setStatus("已载入本浏览器里上次的布局")}else setStatus("显示默认布局")}catch(e){setStatus("显示默认布局")}
+draw();
+</script>
+</body>
+</html>
